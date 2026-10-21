@@ -134,6 +134,18 @@ defmodule ExASTTest do
     end
 
     @tag :tmp_dir
+    test "dry run reports overlapping replacements like a real run", %{tmp_dir: dir} do
+      path = Path.join(dir, "a.ex")
+      File.write!(path, "defmodule A do\n  def go, do: foo(foo(1))\nend\n")
+
+      assert_raise ArgumentError, ~r/overlapping replacement/, fn ->
+        ExAST.replace(path, "foo(x)", "bar(x)", dry_run: true)
+      end
+
+      assert File.read!(path) =~ "foo(foo(1))"
+    end
+
+    @tag :tmp_dir
     test "returns empty list when no matches", %{tmp_dir: dir} do
       File.write!(Path.join(dir, "a.ex"), "IO.puts(:ok)\n")
       assert [] = ExAST.replace(dir, "IO.inspect(_)", "dbg(_)")

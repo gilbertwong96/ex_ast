@@ -134,7 +134,9 @@ defmodule ExAST do
   - `:not_inside` — skip replacements inside ancestors matching this pattern
   - `:format` — format modified files with `Code.format_string!/1`
 
-  Returns a list of `{file, count}` tuples for modified files.
+  Returns a list of `{file, count}` tuples for modified files. Raises
+  `ExAST.Source.ConcurrentUpdateError` when a file keeps changing while it is updated; files
+  replaced before the error stay replaced.
   """
   @spec replace(String.t() | [String.t()], String.t() | ExAST.Selector.t(), String.t(), keyword()) ::
           [
@@ -297,29 +299,32 @@ defmodule ExAST do
   end
 
   defp replace_file(file, pattern, replacement, dry_run, format?, where_opts) do
-    file
-    |> ExAST.Source.update(
-      &rewrite_source(&1, pattern, replacement, dry_run, format?, where_opts)
-    )
-    |> case do
-      0 -> []
-      count -> [{file, count}]
+    source = File.read!(file)
+
+    if ExAST.Prefilter.may_match?(source, pattern) do
+      file
+      |> ExAST.Source.update(
+        &rewrite_source(&1, pattern, replacement, dry_run, format?, where_opts)
+      )
+      |> case do
+        0 -> []
+        count -> [{file, count}]
+      end
+    else
+      []
     end
   end
 
   defp rewrite_source(source, pattern, replacement, dry_run, format?, where_opts) do
-    if ExAST.Prefilter.may_match?(source, pattern) do
-      plan = Rewriter.plan(source, pattern, replacement, where_opts)
-      count = length(plan.replacements)
+    plan = Rewriter.plan(source, pattern, replacement, where_opts)
+    count = length(plan.replacements)
 
-      rewritten =
-        if count > 0 and not dry_run,
-          do: source |> Rewriter.apply(plan, on_conflict: :raise) |> maybe_format(format?),
-          else: source
-
-      {rewritten, count}
-    else
+    if count == 0 do
       {source, 0}
+    else
+      # apply/3 rejects overlapping replacements, so a dry run fails where a real run would.
+      rewritten = Rewriter.apply(source, plan, on_conflict: :raise)
+      {if(dry_run, do: source, else: maybe_format(rewritten, format?)), count}
     end
   end
 

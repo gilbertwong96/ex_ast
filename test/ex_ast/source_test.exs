@@ -16,11 +16,14 @@ defmodule ExAST.SourceTest do
   test "writes nothing when the rewrite leaves the content unchanged", %{tmp_dir: dir} do
     path = Path.join(dir, "a.ex")
     File.write!(path, "one\n")
-    File.chmod!(path, 0o444)
+
+    # A write is only visible in the mtime when the file does not already have the current second.
+    File.touch!(path, {{2000, 1, 1}, {0, 0, 0}})
+    written_at = File.stat!(path, time: :posix).mtime
 
     assert Source.update(path, fn source -> {source, :unchanged} end) == :unchanged
 
-    File.chmod!(path, 0o644)
+    assert File.stat!(path, time: :posix).mtime == written_at
     assert File.read!(path) == "one\n"
   end
 
@@ -46,7 +49,7 @@ defmodule ExAST.SourceTest do
     path = Path.join(dir, "a.ex")
     File.write!(path, "start\n")
 
-    assert_raise ArgumentError, ~r/changed while it was updated/, fn ->
+    assert_raise ExAST.Source.ConcurrentUpdateError, ~r/changed while it was updated/, fn ->
       Source.update(path, fn source ->
         File.write!(path, source <> "more\n")
         {source <> "ours\n", :rewritten}
