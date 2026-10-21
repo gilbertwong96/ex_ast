@@ -178,8 +178,8 @@ defmodule ExASTTest do
     test "substitute an attribute name captured from an attribute slot" do
       plan =
         ExAST.rewrite_plan(
-          "@env Application.get_env(:a, :b)",
-          "@name Application.get_env(_, _)",
+          "@env Application.compile_env(:a, :b)",
+          "@name Application.compile_env(_, _)",
           "@name Application.fetch_env!(_, _)"
         )
 

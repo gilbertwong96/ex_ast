@@ -1026,11 +1026,11 @@ defmodule ExAST.PatternTest do
     end
 
     test "substitutes a captured attribute name with arguments" do
-      template = Code.string_to_quoted!("@name Application.get_env(:app, :key)")
+      template = Code.string_to_quoted!("@name Application.compile_env(:app, :key)")
 
       assert template
              |> Pattern.substitute(%{name: :env}, attribute_names: [:name])
-             |> Macro.to_string() == "@env Application.get_env(:app, :key)"
+             |> Macro.to_string() == "@env Application.compile_env(:app, :key)"
     end
 
     test "keeps an attribute with arguments when its name came from outside an attribute slot" do
@@ -1073,12 +1073,14 @@ defmodule ExAST.PatternTest do
       assert Pattern.attribute_names("Process.delete(@fragment_epoch)") ==
                MapSet.new([:fragment_epoch])
 
-      assert Pattern.attribute_names("@name Application.get_env(_, _)") == MapSet.new([:name])
+      assert Pattern.attribute_names("@name Application.compile_env(_, _)") ==
+               MapSet.new([:name])
+
       assert Pattern.attribute_names("@doc \"Runs.\"") == MapSet.new([:doc])
       assert Pattern.attribute_names("foo(name)") == MapSet.new()
       assert Pattern.attribute_names("Process.delete(@_name)") == MapSet.new()
 
-      assert "@name Application.get_env(_, _)"
+      assert "@name Application.compile_env(_, _)"
              |> Pattern.compile()
              |> Pattern.attribute_names() == MapSet.new([:name])
     end

@@ -320,14 +320,14 @@ defmodule ExAST.PatcherTest do
 
     test "substitutes a captured attribute name" do
       source = """
-      @env Application.get_env(:app, :key)
+      @env Application.compile_env(:app, :key)
       """
 
       assert Patcher.replace_all(
                source,
-               "@name Application.get_env(:app, :key)",
-               "@name Application.get_env(:app, :other_key)"
-             ) =~ "@env Application.get_env(:app, :other_key)"
+               "@name Application.compile_env(:app, :key)",
+               "@name Application.compile_env(:app, :other_key)"
+             ) =~ "@env Application.compile_env(:app, :other_key)"
     end
 
     test "keeps a literal @doc when the pattern captures a variable named doc" do
@@ -1203,13 +1203,13 @@ defmodule ExAST.PatcherTest do
 
       source = """
       defmodule Example do
-        @env Application.get_env(:app, :key)
+        @env Application.compile_env(:app, :key)
       end
       """
 
       selector =
         pattern("defmodule _ do ... end")
-        |> descendant("@name Application.get_env(_, _)")
+        |> descendant("@name Application.compile_env(_, _)")
 
       assert replace(source, selector, "@name Application.fetch_env!(_, _)") =~
                "@env Application.fetch_env!(_, _)"
